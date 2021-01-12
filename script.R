@@ -20,10 +20,10 @@ cmap_counties <- c("17031", "17043", "17089", "17093", "17097", "17111", "17197"
 
 
 
-# ## View all available APIs
-# listCensusApis() %>%
-#   View()
-#
+## View all available APIs
+listCensusApis() %>%
+  View()
+
 # # View variables of response rate API
 # listCensusMetadata(name = "acs/acs5",
 #                    vintage = "2019") %>%
@@ -35,11 +35,12 @@ cmap_counties <- c("17031", "17043", "17089", "17093", "17097", "17111", "17197"
 
 # Import population estimates (downloaded from the Census Bureau)
 state_populations <-
-  read.csv("S:/Projects_FY21/Policy Development and Analysis/Census Response/2021 analysis/population_estimates.csv")
+  read.csv("https://www2.census.gov/programs-surveys/popest/datasets/2010-2020/national/totals/nst-est2020.csv") %>%
+  filter(STATE != 0)
 
 # Create list of states (for factor levels)
 state_factors <-
-  state_populations[which(state_populations$geog != "Illinois"),]$geog
+  state_populations[which(state_populations$NAME != "Illinois"),]$NAME
 
 # Make Illinois the last in the list, so that it is drawn last
 state_factors <- c(state_factors,"Illinois")
@@ -48,30 +49,30 @@ state_factors <- c(state_factors,"Illinois")
 state_populations_normalized <-
   state_populations %>%
   # Divide all population figures by 2010 Census count
-  mutate(across(c("census":"X2020"),~./census)) %>%
+  mutate(across(c("CENSUS2010POP":"POPESTIMATE2020"),~./CENSUS2010POP)) %>%
   # Make data longer
-  pivot_longer(cols = c("census":"X2020")) %>%
+  pivot_longer(cols = c("CENSUS2010POP":"POPESTIMATE2020"),names_to = "survey_year") %>%
   # Keep relevant records
-  filter(!(name %in% c("estimates_base","X2010"))) %>%
+  filter(!(survey_year %in% c("ESTIMATESBASE2010","POPESTIMATE2010"))) %>%
   # Rename "census" to "2010"
-  mutate(name = case_when(
-    name == "census" ~ "2010",
-    TRUE ~ name)) %>%
+  mutate(survey_year = case_when(
+    survey_year == "CENSUS2010POP" ~ "2010",
+    TRUE ~ survey_year)) %>%
   # Remove "X" from year names
-  mutate(year = as.integer(sub("X","",name))) %>%
+  mutate(year = as.integer(sub("POPESTIMATE","",survey_year))) %>%
   # Add factor levels to states
-  mutate(geog = factor(geog,levels = state_factors))
+  mutate(NAME = factor(NAME,levels = state_factors))
 
 
 
 # Create Figure 1
 figure1 <-
   state_populations_normalized %>%
-  filter(geog != "District of Columbia") %>%
-  ggplot(aes(x = year, y = value, color = geog)) +
+  filter(NAME != "District of Columbia") %>%
+  ggplot(aes(x = year, y = value, color = NAME)) +
   geom_line() +
   theme_cmap(legend.position = "none") +
-  cmap_color_highlight(state_populations_normalized$geog,"Illinois") +
+  cmap_color_highlight(state_populations_normalized$NAME,"Illinois") +
   scale_x_continuous(breaks = c(2010,2012,2014,2016,2018,2020)) +
   scale_y_continuous(label = scales::label_percent(accuracy = 1),limits = c(.95,1.20))
 
