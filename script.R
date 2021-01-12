@@ -38,11 +38,11 @@ state_populations <-
   read.csv("S:/Projects_FY21/Policy Development and Analysis/Census Response/2021 analysis/population_estimates.csv")
 
 # Create list of states (for factor levels)
-states <-
+state_factors <-
   state_populations[which(state_populations$geog != "Illinois"),]$geog
 
 # Make Illinois the last in the list, so that it is drawn last
-states <- c(states,"Illinois")
+state_factors <- c(state_factors,"Illinois")
 
 # Calculate normalized population figures
 state_populations_normalized <-
@@ -60,7 +60,7 @@ state_populations_normalized <-
   # Remove "X" from year names
   mutate(year = as.integer(sub("X","",name))) %>%
   # Add factor levels to states
-  mutate(geog = factor(geog,levels = states))
+  mutate(geog = factor(geog,levels = state_factors))
 
 
 
@@ -76,11 +76,11 @@ figure1 <-
   scale_y_continuous(label = scales::label_percent(accuracy = 1),limits = c(.95,1.20))
 
 finalize_plot(figure1,
-              title = "State-by-state population change since 2010 normalized
-              against 2010 population (highlighting Illinois).",
-              caption = "Note: 2010 population figures are Cnesus counts as of
+              title = "State-by-state population change since 2010 (highlighting Illinois).",
+              caption = "Note: 2010 population figures are Census counts as of
               April 1, 2010. Other years are population estimates as of July 1
-              of the respective year.
+              of the respective year, normalized against 2010 population totals.
+              Excludes Washington, D.C. as well as Puerto Rico and other U.S. territories.
               <br><br>
               Source: Chicago Metropolitan Agency for Planning analysis of 2020
               U.S. Census Bureau Population Estimates.",
