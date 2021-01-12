@@ -80,11 +80,13 @@ finalize_plot(figure1,
               caption = "Note: 2010 population figures are Census counts as of
               April 1, 2010. Other years are population estimates as of July 1
               of the respective year, normalized against 2010 population totals.
+              All figures are derived from estimates based on the 2010 Census and
+              do not rely on data from the yet-to-be-released 2020 Census.
               Excludes Washington, D.C. as well as Puerto Rico and other U.S. territories.
               <br><br>
               Source: Chicago Metropolitan Agency for Planning analysis of 2020
               U.S. Census Bureau Population Estimates.",
-              caption_valign = "t",
+              caption_valign = "b",
               filename = "figure1",
               mode = "png",
               overwrite = TRUE)
