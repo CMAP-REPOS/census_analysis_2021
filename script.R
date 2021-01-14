@@ -11,6 +11,7 @@ Sys.setenv(CENSUS_KEY="ea4079a757dc7fa173162ba144f2e6abb92b1112")
 Sys.getenv("CENSUS_KEY")
 
 # # Daniel's Key:
+# Run once per machine
 # census_api_key("ea4079a757dc7fa173162ba144f2e6abb92b1112", install=TRUE)
 #
 
@@ -20,9 +21,9 @@ cmap_counties <- c("17031", "17043", "17089", "17093", "17097", "17111", "17197"
 
 
 
-## View all available APIs
-listCensusApis() %>%
-  View()
+# # View all available APIs
+# listCensusApis() %>%
+#   View()
 
 # # View variables of response rate API
 # listCensusMetadata(name = "acs/acs5",
@@ -33,9 +34,10 @@ listCensusApis() %>%
 
 #### FIGURE 1
 
-# Import population estimates (downloaded from the Census Bureau)
+# Import population estimates
 state_populations <-
   read.csv("https://www2.census.gov/programs-surveys/popest/datasets/2010-2020/national/totals/nst-est2020.csv") %>%
+  # Remove regional summaries
   filter(STATE != 0)
 
 # Create list of states (for factor levels)
@@ -68,29 +70,211 @@ state_populations_normalized <-
 # Create Figure 1
 figure1 <-
   state_populations_normalized %>%
+  # Remove DC
   filter(NAME != "District of Columbia") %>%
+  # Set aesthetics
   ggplot(aes(x = year, y = value, color = NAME)) +
+  # Add line graph
   geom_line() +
+  # Add CMAP design standards and remove legend
   theme_cmap(legend.position = "none") +
+  # Highlight Illinois in blue and make other states gray
   cmap_color_highlight(state_populations_normalized$NAME,"Illinois") +
+  # Modify breaks
   scale_x_continuous(breaks = c(2010,2012,2014,2016,2018,2020)) +
+  # Reformat y-axis labels
   scale_y_continuous(label = scales::label_percent(accuracy = 1),limits = c(.95,1.20))
 
+# Export Figure 1
 finalize_plot(figure1,
-              title = "State-by-state population change since 2010 (highlighting Illinois).",
-              caption = "Note: 2010 population figures are Census counts as of
+              title = "State-by-state population change since 2010 (Illinois in blue).",
+              caption = "Note: 2010 population figures are census counts as of
               April 1, 2010. Other years are population estimates as of July 1
               of the respective year, normalized against 2010 population totals.
-              All figures are derived from estimates based on the 2010 Census and
-              do not rely on data from the yet-to-be-released 2020 Census.
-              Excludes Washington, D.C. as well as Puerto Rico and other U.S. territories.
+              All figures are derived from estimates based on the 2010 census and
+              do not rely on data from the yet-to-be-released 2020 census.
+              Excludes Washington, D.C., as well as Puerto Rico and other U.S. territories.
               <br><br>
               Source: Chicago Metropolitan Agency for Planning analysis of 2020
               U.S. Census Bureau Population Estimates.",
-              caption_valign = "b",
+              caption_valign = "t",
               filename = "figure1",
               mode = "png",
               overwrite = TRUE)
+
+
+########### Figure 2 and intra-Illinois comparisons
+
+
+## Pull data on Illinois counties
+county_pop_2019 <- get_acs(geography = "county",
+                           state = "17",
+                           variables = c("B01001_001"),
+                           cache_table = TRUE,
+                           year = 2019,
+                           survey = "acs5",
+                           output = "wide") %>%
+  # Sort by population (descending)
+  arrange(-B01001_001E) %>%
+  # Rename variables and select
+  select(NAME,
+         pop19 = B01001_001E,
+         GEOID)
+
+## Pull same data for 2014
+county_pop_2014 <- get_acs(geography = "county",
+                           state = "17",
+                           variables = c("B01001_001"),
+                           cache_table = TRUE,
+                           year = 2014,
+                           survey = "acs5",
+                           output = "wide") %>%
+  # Sort by population (descending)
+  arrange(-B01001_001E) %>%
+  # Rename variables and select
+  select(NAME,
+         pop14 = B01001_001E,
+         GEOID)
+
+
+
+## Pull data on Chicago
+place_pop_2019 <- get_acs(geography = "place",
+                          state = "17",
+                          variables = c("B01001_001"),
+                          cache_table = TRUE,
+                          year = 2019,
+                          survey = "acs5",
+                          output = "wide") %>%
+  # Keep only Chicago
+  filter(GEOID == 1714000) %>%
+  # Rename variables and select
+  select(NAME,
+         pop19 = B01001_001E,
+         GEOID)
+
+## Pull same data for 2014
+place_pop_2014 <- get_acs(geography = "place",
+                          state = "17",
+                          variables = c("B01001_001"),
+                          cache_table = TRUE,
+                          year = 2014,
+                          survey = "acs5",
+                          output = "wide") %>%
+  # Keep only Chicago
+  filter(GEOID == 1714000) %>%
+  # Rename variables and select
+  select(NAME,
+         pop14 = B01001_001E,
+         GEOID)
+
+## Join both years of Chicago's population
+chicago_pop <-
+  place_pop_2014 %>%
+  inner_join(place_pop_2019 %>% select(GEOID,pop19), by = "GEOID") %>%
+  mutate(NAME = "Chicago")
+
+## Join the two years for the county
+county_pop <-
+  county_pop_2014 %>%
+  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
+  mutate(pct_change = round(100*((pop19 - pop14) / pop14),2),
+         pop_change = pop19 - pop14) %>%
+  arrange(-pct_change) %>%
+  mutate(Rank = row_number()) %>%
+  select(Rank,
+         County = NAME,
+         pop14,
+         pop19,
+         pop_change,
+         pct_change,
+         GEOID)
+
+chicago_suburban_cook <-
+  county_pop_2014 %>%
+  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
+  filter(NAME == "Cook County, Illinois") %>%
+  mutate(NAME = "Suburban Cook County") %>%
+  mutate(
+    pop19 = pop19 - chicago_pop$pop19,
+    pop14 = pop14 - chicago_pop$pop14) %>%
+  rbind(chicago_pop) %>%
+  mutate(pct_change = round(100*((pop19 - pop14) / pop14),2),
+         pop_change = pop19 - pop14,
+         Rank = "") %>%
+  select(Rank,
+         County = NAME,
+         pop14,
+         pop19,
+         pop_change,
+         pct_change,
+         GEOID)
+
+# Keep the top 10 and bottom 10 counties, plus any not included from the CMAP region
+county_pop_table <-
+  county_pop[c(1:10,(nrow(county_pop)-9):nrow(county_pop)),] %>%
+  rbind(county_pop %>% filter(GEOID %in% cmap_counties)) %>%
+  rbind(chicago_suburban_cook) %>%
+  distinct() %>%
+  arrange(-pct_change) %>%
+  mutate(pct_change = paste0(pct_change,"%")) %>%
+  select(-GEOID) %>%
+  mutate(County = sub(" County, Illinois","",County))
+
+# Export just the changes and GEOIDs for the map
+county_pop_map <-
+  county_pop_2014 %>%
+  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
+  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
+         pop_change = pop19 - pop14)
+
+# Add Chicago and suburban Cook County as jurisdictions
+county_pop_map <-
+  county_pop_map %>%
+  select(NAME,
+         pop14,
+         pop19,
+         pct_change,
+         pop_change,
+         GEOID) %>%
+  filter(GEOID != 17031) %>%
+  rbind(., chicago_suburban_cook %>%
+          select(-Rank, NAME = County) %>%
+          mutate(pct_change = pct_change/100)) %>%
+  mutate(county_fips = sub("17","",GEOID))
+
+
+# Export results
+
+write.csv(county_pop_table,"outputs/county_pop_table.csv")
+write.csv(county_pop_map,"outputs/county_pop_map.csv")
+
+
+##### CMAP region vs. rest of IL
+
+regional_comparison <-
+  county_pop_2014 %>%
+  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
+  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
+         pop_change = pop19 - pop14) %>%
+  mutate(CMAP = case_when(
+    GEOID %in% cmap_counties ~ "CMAP",
+    TRUE ~ "Rest of IL"
+  )) %>%
+  group_by(CMAP) %>%
+  summarize(pop14 = sum(pop14),
+            pop19 = sum(pop19)) %>%
+  mutate(pct_change = round((100*(pop19 - pop14) / pop14),2),
+         pop_change = pop19 - pop14)  %>%
+  mutate(pct_change = paste0(pct_change,"%")) %>%
+  select(Region = CMAP,
+         "2014 Pop." = pop14,
+         "2019 Pop." = pop19,
+         "Change (Pop.)" = pop_change,
+         "Change (Pct.)" = pct_change)
+
+
+write.csv(regional_comparison,"regional_comparison.csv")
 
 
 ####### MSA-level population figures (cited in text)
@@ -193,7 +377,7 @@ msa_pop_export <- msa_pop[c(1:10,(nrow(msa_pop)-9):nrow(msa_pop)),]
 
 # Export results
 
-write.csv(msa_pop_export,"msa_pop_export.csv")
+write.csv(msa_pop_export,"outputs/msa_pop_export.csv")
 
 
 
@@ -223,264 +407,26 @@ msa_hispa_pop_export <- msa_hispa_pop[c(1:5,(nrow(msa_hispa_pop)-4):nrow(msa_his
 
 # Export results
 
-write.csv(msa_hispa_pop_export,"msa_hispa_pop_export.csv")
-
-
-########### Figure 2 and intra-Illinois comparisons
-
-
-## Pull data on Illinois counties
-county_pop_2019 <- get_acs(geography = "county",
-                           state = "17",
-                           variables = c("B01001_001"),
-                           cache_table = TRUE,
-                           year = 2019,
-                           survey = "acs5",
-                           output = "wide") %>%
-  # Sort by population (descending)
-  arrange(-B01001_001E) %>%
-  # Rename variables and select
-  select(NAME,
-         pop19 = B01001_001E,
-         GEOID)
-
-## Pull same data for 2014
-county_pop_2014 <- get_acs(geography = "county",
-                           state = "17",
-                           variables = c("B01001_001"),
-                           cache_table = TRUE,
-                           year = 2014,
-                           survey = "acs5",
-                           output = "wide") %>%
-  # Sort by population (descending)
-  arrange(-B01001_001E) %>%
-  # Rename variables and select
-  select(NAME,
-         pop14 = B01001_001E,
-         GEOID)
+write.csv(msa_hispa_pop_export,"outputs/msa_hispa_pop_export.csv")
 
 
 
-## Pull data on Chicago
-place_pop_2019 <- get_acs(geography = "place",
-                          state = "17",
-                          variables = c("B01001_001"),
-                          cache_table = TRUE,
-                          year = 2019,
-                          survey = "acs5",
-                          output = "wide") %>%
-  # Keep only Chicago
-  filter(GEOID == 1714000) %>%
-  # Rename variables and select
-  select(NAME,
-         pop19 = B01001_001E,
-         GEOID)
+###### State-to-state migration
 
-## Pull same data for 2014
-place_pop_2014 <- get_acs(geography = "place",
-                          state = "17",
-                          variables = c("B01001_001"),
-                          cache_table = TRUE,
-                          year = 2014,
-                          survey = "acs5",
-                          output = "wide") %>%
-  # Keep only Chicago
-  filter(GEOID == 1714000) %>%
-  # Rename variables and select
-  select(NAME,
-         pop14 = B01001_001E,
-         GEOID)
-
-chicago_pop <-
-  place_pop_2014 %>%
-  inner_join(place_pop_2019 %>% select(GEOID,pop19), by = "GEOID") %>%
-  mutate(NAME = "Chicago")
-
-## Join the two years
-county_pop <-
-  county_pop_2014 %>%
-  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
-  mutate(pct_change = round(100*((pop19 - pop14) / pop14),2),
-         pop_change = pop19 - pop14) %>%
-  arrange(-pct_change) %>%
-  mutate(Rank = row_number()) %>%
-  select(Rank,
-         County = NAME,
-         pop14,
-         pop19,
-         pop_change,
-         pct_change,
-         GEOID)
-
-chicago_suburban_cook <-
-  county_pop_2014 %>%
-  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
-  filter(NAME == "Cook County, Illinois") %>%
-  mutate(NAME = "Suburban Cook County") %>%
-  mutate(
-    pop19 = pop19 - chicago_pop$pop19,
-    pop14 = pop14 - chicago_pop$pop14) %>%
-  rbind(chicago_pop) %>%
-  mutate(pct_change = round(100*((pop19 - pop14) / pop14),2),
-         pop_change = pop19 - pop14,
-         Rank = "") %>%
-  select(Rank,
-         County = NAME,
-         pop14,
-         pop19,
-         pop_change,
-         pct_change,
-         GEOID)
-
-# Keep the top 10 and bottom 10 counties, plus any not included from the CMAP region
-county_pop_table <- county_pop[c(1:10,(nrow(county_pop)-9):nrow(county_pop)),] %>%
-  rbind(county_pop %>% filter(GEOID %in% cmap_counties)) %>%
-  rbind(chicago_suburban_cook) %>%
-  distinct() %>%
-  arrange(-pct_change) %>%
-  mutate(pct_change = paste0(pct_change,"%")) %>%
-  select(-GEOID) %>%
-  mutate(County = sub(" County, Illinois","",County))
-
-# Export just the changes and GEOIDs for the map
-county_pop_map <-
-  county_pop_2014 %>%
-  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
-  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
-         pop_change = pop19 - pop14)
-
-county_pop_map <-
-  county_pop_map %>%
-  select(NAME,
-         pop14,
-         pop19,
-         pct_change,
-         pop_change,
-         GEOID) %>%
-  filter(GEOID != 17031) %>%
-  rbind(., chicago_suburban_cook %>%
-          select(-Rank, NAME = County) %>%
-          mutate(pct_change = pct_change/100)) %>%
-  mutate(county_fips = sub("17","",GEOID))
+# 2019 State-to-state migration totals downloaded and analyzed from the Bureau:
+# https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html
 
 
-# Export results
+##### Figure 3
 
-write.csv(county_pop_table,"county_pop_table.csv")
-write.csv(county_pop_map,"county_pop_map.csv")
-
-
-##### CMAP region vs. rest of IL
-
-regional_comparison <-
-  county_pop_2014 %>%
-  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
-  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
-         pop_change = pop19 - pop14) %>%
-  mutate(CMAP = case_when(
-    GEOID %in% cmap_counties ~ "CMAP",
-    TRUE ~ "Rest of IL"
-  )) %>%
-  group_by(CMAP) %>%
-  summarize(pop14 = sum(pop14),
-            pop19 = sum(pop19)) %>%
-  mutate(pct_change = round((100*(pop19 - pop14) / pop14),2),
-         pop_change = pop19 - pop14)  %>%
-  mutate(pct_change = paste0(pct_change,"%")) %>%
-  select(Region = CMAP,
-         "2014 Pop." = pop14,
-         "2019 Pop." = pop19,
-         "Change (Pop.)" = pop_change,
-         "Change (Pct.)" = pct_change)
-
-
-write.csv(regional_comparison,"regional_comparison.csv")
-
-
-###### Figure 3
-
-international_migration <-
-  tibble(year = as.character(2010:2019),
-         foreign = c(59735,
-                     69354,
-                     63654,
-                     67422,
-                     66537,
-                     64896,
-                     64093,
-                     69590,
-                     64608,
-                     56785),
-         error = c(4897,
-                   6616,
-                   6337,
-                   6071,
-                   6184,
-                   5755,
-                   4955,
-                   5780,
-                   6311,
-                   6138),
-         state = "IL")
-
-international_migration %>%
-  ggplot(aes(x = year, y = foreign, fill = state, label = paste0(round(foreign/1000,1),"K"))) +
-  geom_col() +
-  geom_errorbar(aes(ymin = foreign - error, ymax = foreign + error),width = .2, alpha = .5) +
-  theme_cmap(legend.position = "none") +
-  geom_text(vjust = -.2) +
-  scale_y_continuous(label = scales::label_comma()) +
-  cmap_fill_discrete(palette = "legislation")
-
-finalize_plot(title = "In-migrants to Illinois from foreign countries, 2010-19.",
-              caption = "Note: Black lines represent margins of error based on a
-              90% confidence interval. The confidence interval for 2019 does not
-              overlap the interval for two other years: 2011 and 2017, which had
-              the highest levels of foreign in-migration over the past ten years.
-              However, these figures should be taken as approximate.
-              <br><br>
-              Source: CMAP analysis of 1-Year State-to-State Migration Flows, 2010-19.",
-              caption_valign = "t",
-              title_width = 2,
-              mode = "png",
-              filename = "figure2",
-              overwrite = T)
-
-
-
-migration_county_18 <- getCensus(
-  region = "county:*",
-  regionin = "state:17",
-  name = "acs/flows",
-  vintage = 2018,
-  vars = c("FROMABROAD","FROMABROAD_M"))
-
-migration_totals_18 <- migration_county_18 %>%
-  distinct() %>%
-  summarize(total18 = sum(as.integer(FROMABROAD)),
-            moe18 = sqrt(sum(as.integer(FROMABROAD_M)^2)))
-
-migration_county_14 <- getCensus(
-  region = "county:*",
-  regionin = "state:17",
-  name = "acs/flows",
-  vintage = 2014,
-  vars = c("FROMABROAD","FROMABROAD_M"))
-
-migration_totals_14 <- migration_county_14 %>%
-  distinct() %>%
-  summarize(total14 = sum(as.integer(FROMABROAD)),
-            moe14 = sqrt(sum(as.integer(FROMABROAD_M)^2)))
-
-##### Figure 4
-
+# Load variable names for relevant data sets
 migration_vars19 <- listCensusMetadata(name = "acs/acs5",vintage = "2019")
 migration_vars14 <- listCensusMetadata(name = "acs/acs5",vintage = "2014")
 migration_vars09 <- listCensusMetadata(name = "acs/acs5",vintage = "2009")
 
 
 
-
+# Load country of origin data for 2019
 table_country_of_origin_19 <-
   get_acs(geography = "county",
           state = 17,
@@ -491,18 +437,23 @@ table_country_of_origin_19 <-
           survey = "acs5",
   )
 
+# Summarize seven-county data into regional totals
 cmap_country_of_origin_19 <-
   table_country_of_origin_19 %>%
   group_by(variable) %>%
+  # Generate totals and MOEs
   summarize(estimate = sum(estimate),
             moe = sqrt(sum(moe^2))) %>%
   ungroup() %>%
+  # Calculate percent out of total foreign-born population
   mutate(percent = round(estimate / .[which(variable == "B05006_001"),]$estimate,4)) %>%
+  # Make variable names consistent for joining purposes
   mutate(name = paste0(variable,"E")) %>%
+  # Join to variable names
   left_join(migration_vars19 %>% select(name, label), by = "name") %>%
   select(-name)
 
-
+# Repeat logic for 2014
 table_country_of_origin_14 <-
   get_acs(geography = "county",
           state = 17,
@@ -525,7 +476,7 @@ cmap_country_of_origin_14 <-
   select(-name)
 
 
-
+# Repeat logic for 2009
 table_country_of_origin_09 <-
   get_acs(geography = "county",
           state = 17,
@@ -548,6 +499,9 @@ cmap_country_of_origin_09 <-
   select(-name)
 
 
+# Select relevant variables for the top 10 countries of birth for foreign-born
+# residents from each dataset, and recode into country names. Uses the top 10
+# list from 2019 for all datasets.
 cmap_country_of_origin <-
   cmap_country_of_origin_19 %>%
   filter(variable %in% c("B05006_001", # Total
@@ -631,22 +585,28 @@ cmap_country_of_origin <-
                                   "B05006_076" = "Vietnam"))) %>%
   select(-variable,-label,-moe)
 
-
+# Make helper list for top four countries of birth.
 top_four <- c("Mexico","India","Poland","Philippines")
 
-
+# Filter data to identify population of foreign-born residents from other countries
 cmap_country_of_origin_top_four <-
   cmap_country_of_origin %>%
   filter(country %in% c(top_four)) %>%
   group_by(year) %>%
+  # Calculate total of residents born in top four countries
   summarize(total = sum(estimate)) %>%
+  # Join with totals
   left_join(cmap_country_of_origin %>% filter(country == "Total"), by = "year") %>%
+  # Calculate total and percentage for those born in other countries
   mutate(other_total = estimate - total) %>%
   mutate(other_pct = round(other_total / estimate,4))
 
+# Create base data
 cmap_country_of_origin_chart <-
   cmap_country_of_origin %>%
+  # Keep top four data
   filter(country %in% c(top_four)) %>%
+  # Add row for other countries with calculated data
   rbind(tibble(
     year = c(2009,2014,2019),
     country = "Other countries",
@@ -656,7 +616,7 @@ cmap_country_of_origin_chart <-
           filter(country == "Total"))
 
 
-figure4 <-
+figure3 <-
   cmap_country_of_origin_chart %>%
   filter(country != "Total") %>%
   mutate(country = factor(country, levels = c("Mexico","India","Poland","Philippines","Other countries"))) %>%
@@ -669,7 +629,7 @@ figure4 <-
   geom_text(position = position_stack(reverse = TRUE), vjust = 1.1, color = "white") +
   cmap_fill_discrete(palette = "legislation")
 
-finalize_plot(figure4,
+finalize_plot(figure3,
               title = "Foreign-born population in the CMAP region by country of birth.",
               caption = "Note: Includes the top four countries by origin in 2019. Estimates are for the seven counties that make up the CMAP region in northeastern Illinois.
               <br><br>
@@ -678,27 +638,4 @@ finalize_plot(figure4,
               mode = "png",
               caption_valign = "t",
               overwrite = T)
-
-
-### Proportion of population that is foreign-born
-
-
-cmap_pop <-
-  map_dfr(c(2009,2014,2019),
-          ~get_acs(geography = "county",
-                   state = 17,
-                   variables = c("B01001_001"),
-                   cache_table = TRUE,
-                   year = .,
-                   survey = "acs5") %>%
-            filter(GEOID %in% cmap_counties) %>%
-            summarize(pop = sum(estimate))) %>%
-  cbind(tibble(year = c(2009,2014,2019)))
-
-cmap_foreign_born <-
-  cmap_country_of_origin %>%
-  filter(country == "Total") %>%
-  left_join(cmap_pop, by = "year") %>%
-  mutate(pct_foreign_born = estimate / pop)
-
 
