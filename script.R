@@ -2,6 +2,7 @@ library(tidyverse)
 library(tidycensus)
 library(cmapplot)
 library(censusapi)
+library(directlabels)
 
 
 
@@ -42,14 +43,20 @@ state_populations <-
 
 # Create list of states (for factor levels)
 state_factors <-
-  state_populations[which(state_populations$NAME != "Illinois"),]$NAME
+  state_populations[which(!(state_populations$NAME %in% c("Illinois","California","North Dakota",
+                                                         "New York","Pennsylvania","Utah",
+                                                         "West Virginia"))),]$NAME
 
 # Make Illinois the last in the list, so that it is drawn last
-state_factors <- c(state_factors,"Illinois")
+state_factors <- c(state_factors,"California","North Dakota",
+                   "New York","Pennsylvania","Utah",
+                   "West Virginia","Illinois")
 
 # Calculate normalized population figures
 state_populations_normalized <-
   state_populations %>%
+  # Remove DC
+  filter(NAME != "District of Columbia") %>%
   # Divide all population figures by 2010 Census count
   mutate(across(c("CENSUS2010POP":"POPESTIMATE2020"),~./CENSUS2010POP)) %>%
   # Make data longer
@@ -62,6 +69,12 @@ state_populations_normalized <-
     TRUE ~ survey_year)) %>%
   # Remove "X" from year names
   mutate(year = as.integer(sub("POPESTIMATE","",survey_year))) %>%
+  # Add column for on-graph labels for a subset of states
+  mutate(label = case_when(
+    NAME %in% c("California","Illinois","North Dakota",
+                "New York","Pennsylvania","Utah",
+                "West Virginia") ~ NAME,
+    TRUE ~ "")) %>%
   # Add factor levels to states
   mutate(NAME = factor(NAME,levels = state_factors))
 
@@ -70,8 +83,6 @@ state_populations_normalized <-
 # Create Figure 1
 figure1 <-
   state_populations_normalized %>%
-  # Remove DC
-  filter(NAME != "District of Columbia") %>%
   # Set aesthetics
   ggplot(aes(x = year, y = value, color = NAME)) +
   # Add line graph
@@ -79,15 +90,22 @@ figure1 <-
   # Add CMAP design standards and remove legend
   theme_cmap(legend.position = "none") +
   # Highlight Illinois in blue and make other states gray
-  cmap_color_highlight(state_populations_normalized$NAME,"Illinois") +
+  cmap_color_highlight(state_populations_normalized$NAME,
+                       value = c("Illinois","California","North Dakota",
+                                 "New York","Pennsylvania","Utah",
+                                 "West Virginia"),
+                       color_value = c("#00b0f0",rep("#475c66",6))
+                       ) +
   # Modify breaks
-  scale_x_continuous(breaks = c(2010,2012,2014,2016,2018,2020)) +
+  scale_x_continuous(breaks = c(2010,2012,2014,2016,2018,2020),limits = c(2010,2022)) +
   # Reformat y-axis labels
-  scale_y_continuous(label = scales::label_percent(accuracy = 1),limits = c(.95,1.20))
+  scale_y_continuous(label = scales::label_percent(accuracy = 1),limits = c(.95,1.20)) +
+  # Add labels
+  geom_dl(aes(label = label), method = list(dl.trans(x=x+0.1), "last.points"), cex = 1)
 
 # Export Figure 1
 finalize_plot(figure1,
-              title = "State-by-state population change since 2010 (Illinois in blue).",
+              title = "State-by-state population change since 2010 (highlighting Illinois and select states).",
               caption = "Note: 2010 population figures are census counts as of
               April 1, 2010. Other years are population estimates as of July 1
               of the respective year, normalized against 2010 population totals.
@@ -252,15 +270,18 @@ write.csv(county_pop_map,"outputs/county_pop_map.csv")
 
 ##### CMAP region vs. rest of IL
 
-regional_comparison <-
+regional_comparison_wip <-
   county_pop_2014 %>%
-  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID") %>%
-  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
-         pop_change = pop19 - pop14) %>%
+  inner_join(county_pop_2019 %>% select(GEOID,pop19),by = "GEOID")
+
+
+regional_comparison <-
+  regional_comparison_wip %>%
   mutate(CMAP = case_when(
     GEOID %in% cmap_counties ~ "CMAP",
     TRUE ~ "Rest of IL"
   )) %>%
+  rbind(regional_comparison_wip %>% mutate(CMAP = "Total")) %>%
   group_by(CMAP) %>%
   summarize(pop14 = sum(pop14),
             pop19 = sum(pop19)) %>%
@@ -274,7 +295,7 @@ regional_comparison <-
          "Change (Pct.)" = pct_change)
 
 
-write.csv(regional_comparison,"regional_comparison.csv")
+write.csv(regional_comparison,"outputs/regional_comparison.csv")
 
 
 ####### MSA-level population figures (cited in text)
@@ -516,7 +537,7 @@ cmap_country_of_origin <-
                          "B05006_131", # Caribbean
                          "B05006_076") # Vietnam
   ) %>%
-  mutate(year = 2019) %>%
+  mutate(year = "2015-19") %>%
   mutate(country = recode(variable,
                           "B05006_001" = "Total",
                           "B05006_150" = "Mexico",
@@ -543,7 +564,7 @@ cmap_country_of_origin <-
             "B05006_124", # Caribbean
             "B05006_076") # Vietnam
           ) %>%
-          mutate(year = 2014) %>%
+          mutate(year = "2010-14") %>%
           mutate(country = recode(variable,
                                   "B05006_001" = "Total",
                                   "B05006_138" = "Mexico",
@@ -570,7 +591,7 @@ cmap_country_of_origin <-
             "B05006_124", # Caribbean
             "B05006_076") # Vietnam
           ) %>%
-          mutate(year = 2009) %>%
+          mutate(year = "2005-09") %>%
           mutate(country = recode(variable,
                                   "B05006_001" = "Total",
                                   "B05006_138" = "Mexico",
@@ -608,7 +629,7 @@ cmap_country_of_origin_chart <-
   filter(country %in% c(top_four)) %>%
   # Add row for other countries with calculated data
   rbind(tibble(
-    year = c(2009,2014,2019),
+    year = c("2005-09","2010-14","2015-19"),
     country = "Other countries",
     estimate = c(cmap_country_of_origin_top_four$other_total),
     percent = c(cmap_country_of_origin_top_four$other_pct))) %>%
@@ -620,20 +641,22 @@ figure3 <-
   cmap_country_of_origin_chart %>%
   filter(country != "Total") %>%
   mutate(country = factor(country, levels = c("Mexico","India","Poland","Philippines","Other countries"))) %>%
-  mutate(label = paste0(round(100*percent,1),"%")) %>%
+  mutate(label = paste0(format(round(100*percent,1),nsmall = 1),"%")) %>%
   ggplot(aes(x = year, y = estimate, fill = country, label = label)) +
   geom_col(position = position_stack(reverse = TRUE)) +
   theme_cmap() +
   scale_y_continuous(label = scales::label_comma()) +
-  scale_x_continuous(breaks = c(2009,2014,2019)) +
   geom_text(position = position_stack(reverse = TRUE), vjust = 1.1, color = "white") +
-  cmap_fill_discrete(palette = "legislation")
+  scale_fill_discrete(type = c("#00becc", "#003f8c", "#67ac00", "#6d8692", "#00665c"))
 
 finalize_plot(figure3,
               title = "Foreign-born population in the CMAP region by country of birth.",
-              caption = "Note: Includes the top four countries by origin in 2019. Estimates are for the seven counties that make up the CMAP region in northeastern Illinois.
+              caption = "Note: Includes the top four countries by origin in 2015-19.
+              Estimates are for the seven counties that make up the CMAP region in
+              northeastern Illinois.
               <br><br>
-              Source: CMAP analysis of 2005-09, 2010-14, and 2015-19 American Community Survey data.",
+              Source: CMAP analysis of 2005-09, 2010-14, and 2015-19 American
+              Community Survey data.",
               filename = "figure3",
               mode = "png",
               caption_valign = "t",
