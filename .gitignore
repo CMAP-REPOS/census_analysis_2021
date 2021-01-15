@@ -37,3 +37,6 @@ vignettes/*.pdf
 
 # PNGs
 *.png
+
+# R Project files
+*.Rproj
