@@ -109,7 +109,7 @@ finalize_plot(figure1,
               U.S. Census Bureau Population Estimates.",
               caption_valign = "t",
               filename = "figure1",
-              mode = "png",
+              mode = c("svg","png","pdf"),
               overwrite = TRUE)
 
 
@@ -664,7 +664,7 @@ figure3 <-
   scale_y_continuous(label = scales::label_comma()) +
   # Add percentage labels
   geom_text(position = position_stack(reverse = TRUE),
-            vjust = 1.1,
+            vjust = 1,
             color = "white") +
   # Manually set color palette (using CMAP color hex codes)
   scale_fill_discrete(type = c("#00becc", "#003f8c", "#67ac00", "#6d8692", "#00665c"))
@@ -679,7 +679,7 @@ finalize_plot(figure3,
               Source: CMAP analysis of 2005-09, 2010-14, and 2015-19 American
               Community Survey data.",
               filename = "figure3",
-              mode = "png",
+              mode = c("svg","png","pdf"),
               caption_valign = "t",
               overwrite = T)
 
