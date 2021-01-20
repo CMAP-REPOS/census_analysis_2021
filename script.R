@@ -439,7 +439,8 @@ write.csv(msa_hispa_pop_export,"outputs/msa_hispa_pop_export.csv")
 # https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html
 
 
-##### Figure 3
+############################
+# Figure 4
 
 # Load variable names for relevant data sets
 migration_vars19 <- listCensusMetadata(name = "acs/acs5",vintage = "2019")
@@ -643,7 +644,7 @@ cmap_country_of_origin_chart <-
           filter(country == "Total"))
 
 # Create chart
-figure3 <-
+figure4 <-
   # Load data
   cmap_country_of_origin_chart %>%
   # Remove totals
@@ -669,8 +670,8 @@ figure3 <-
   # Manually set color palette (using CMAP color hex codes)
   scale_fill_discrete(type = c("#00becc", "#003f8c", "#67ac00", "#6d8692", "#00665c"))
 
-# Export Figure 3
-finalize_plot(figure3,
+# Export Figure 4
+finalize_plot(figure4,
               title = "Foreign-born population in the CMAP region by country of birth.",
               caption = "Note: Includes the top four countries by origin in 2015-19.
               Estimates are for the seven counties that make up the CMAP region in
@@ -678,7 +679,7 @@ finalize_plot(figure3,
               <br><br>
               Source: CMAP analysis of 2005-09, 2010-14, and 2015-19 American
               Community Survey data.",
-              filename = "figure3",
+              filename = "figure4",
               mode = c("svg","png","pdf"),
               caption_valign = "t",
               overwrite = T)
