@@ -2,8 +2,6 @@ library(tidyverse)
 library(tidycensus)
 library(cmapplot)
 library(censusapi)
-library(directlabels)
-
 
 
 # # Run every session
@@ -57,6 +55,8 @@ state_populations_normalized <-
                 "New York","Pennsylvania","Utah",
                 "West Virginia") ~ NAME,
     TRUE ~ "")) %>%
+                "West Virginia") & year == 2020 ~ value
+  )) %>%
   # Add factor levels to states
   mutate(NAME = fct_relevel(NAME,
                             c("California","North Dakota",
