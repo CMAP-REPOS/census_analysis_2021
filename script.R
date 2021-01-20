@@ -343,9 +343,9 @@ pop_counties_USA_2019 <-
          hispa19 = B01001I_001E)
 
 # Combine the above data pulls
-pop_counties_USA <- inner_join(pop_counties_USA_2014,
-                               pop_counties_USA_2019 %>% select(-county),
-                               by = c("GEOID"))
+pop_counties_USA <-
+  pop_counties_USA_2014 %>%
+  inner_join(pop_counties_USA_2019 %>% select(-county), by = "GEOID")
 
 ## Import crosswalk file for counties to MSAs
 county_msa_crosswalk <- read.csv("sources/county_msa_crosswalk.csv") %>%
@@ -434,8 +434,56 @@ msa_hispa_pop_export <- msa_hispa_pop[c(1:5,(nrow(msa_hispa_pop)-4):nrow(msa_his
 write.csv(msa_hispa_pop_export,"outputs/msa_hispa_pop_export.csv")
 
 
+#############################
+# Figure 3
 
-###### State-to-state migration
+# Create Figure 3
+figure3 <-
+  msa_pop_chart %>%
+  ggplot(aes(x = reorder(MSA,desc(-Rank)), fill = MSA, y = pct_change)) +
+  geom_col() +
+  theme_cmap(legend.position = "none",
+             gridlines = "h",
+             axis.text.x=element_blank(),
+             hline = 0) +
+  # Highlight Illinois in blue and make other states gray
+  cmap_fill_highlight(msa_pop_chart$MSA,
+                       value = c("CMAP region",
+                                 "New York-Newark-Jersey City, NY-NJ-PA",
+                                 "Los Angeles-Long Beach-Anaheim, CA",
+                                 "Houston-The Woodlands-Sugar Land, TX",
+                                 "Austin-Round Rock-Georgetown, TX",
+                                 "Washington-Arlington-Alexandria, DC-VA-MD-WV",
+                                 "Pittsburgh, PA"),
+                       color_value = c("#00b0f0",rep("#475c66",6))) +
+  scale_y_continuous(label = scales::label_percent(accuracy = 1),
+                     limits = c(-.02,.16)) +
+  scale_x_discrete(expand = c(0,4.3)) +
+  geom_text(aes(label = label),
+            hjust = ifelse(msa_pop_chart$pct_change > 0, 0.04, .96),
+            vjust = ifelse(msa_pop_chart$pct_change > 0, -.1, 1.1))
+
+# Export Figure 3
+finalize_plot(figure3,
+              title = "Regional population change, 2010-14 vs. 2015-19
+              (highlighting the CMAP region and select regions).",
+              caption = "Note: CMAP region is highlighted in blue. All figures
+              are calculated based on five-year American Community Survey county
+              population totals, using Metropolitan Statistical Area boundaries
+              as of March 2020. CMAP region totals are calculated using the
+              seven county area and not the larger Metropolitan Statistical Area.
+              <br><br>
+              Source: Chicago Metropolitan Agency for Planning analysis of
+              2010-14 and 2015-19 American Community Survey data.",
+              caption_valign = "t",
+              filename = "figure3",
+              height = 7,
+              mode = c("svg","png","pdf"),
+              overwrite = TRUE)
+
+
+#############################
+# State-to-state migration
 
 # 2019 State-to-state migration totals downloaded and analyzed from the Bureau:
 # https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html
