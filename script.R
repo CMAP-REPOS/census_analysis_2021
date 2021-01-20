@@ -437,6 +437,34 @@ write.csv(msa_hispa_pop_export,"outputs/msa_hispa_pop_export.csv")
 #############################
 # Figure 3
 
+msa_pop_chart <-
+  pop_counties_MSAs %>%
+  mutate(pct_change = round(((pop19 - pop14) / pop14),4),
+         pop_change = pop19 - pop14) %>%
+  arrange(-pct_change) %>%
+  mutate(Rank = row_number()) %>%
+  filter(MSA %in% c("CMAP region",
+                    "New York-Newark-Jersey City, NY-NJ-PA",
+                    "Los Angeles-Long Beach-Anaheim, CA",
+                    "Houston-The Woodlands-Sugar Land, TX",
+                    "Austin-Round Rock-Georgetown, TX",
+                    "Washington-Arlington-Alexandria, DC-VA-MD-WV",
+                    "Pittsburgh, PA")) %>%
+  mutate(label = recode(MSA,
+                        "Los Angeles-Long Beach-Anaheim, CA" = "Los Angeles, CA",
+                        "Houston-The Woodlands-Sugar Land, TX" = "Houston, TX",
+                        "Austin-Round Rock-Georgetown, TX" = "Austin, TX",
+                        "Washington-Arlington-Alexandria, DC-VA-MD-WV" = "Washington, D.C.",
+                        "New York-Newark-Jersey City, NY-NJ-PA" = "New York, NY")) %>%
+  mutate(label = ifelse(label %in%
+                          c("New York, NY",
+                            "Los Angeles, CA",
+                            "Houston, TX",
+                            "Pittsburgh, PA",
+                            "Austin, TX",
+                            "Washington, D.C.",
+                            "CMAP region"), label, NA))
+
 # Create Figure 3
 figure3 <-
   msa_pop_chart %>%
@@ -481,6 +509,38 @@ finalize_plot(figure3,
               mode = c("svg","png","pdf"),
               overwrite = TRUE)
 
+
+# Create Figure 3a
+figure3a <-
+  msa_pop_chart %>%
+  ggplot(aes(y = reorder(label,desc(Rank)), fill = MSA, x = pct_change)) +
+  geom_col() +
+  theme_cmap(legend.position = "none",
+             gridlines = "v",
+             vline = 0) +
+  # Highlight Illinois in blue and make other states gray
+  cmap_fill_highlight(msa_pop_chart$MSA,
+                      value = c("CMAP region")) +
+  scale_x_continuous(label = scales::label_percent(accuracy = 1),
+                     limits = c(-.015,.16))
+
+# Export Figure 3a
+finalize_plot(figure3a,
+              title = "Regional population change, 2010-14 vs. 2015-19
+              (highlighting the CMAP region and select regions).",
+              caption = "Note: CMAP region is highlighted in blue. All figures
+              are calculated based on five-year American Community Survey county
+              population totals, using Metropolitan Statistical Area boundaries
+              as of March 2020. CMAP region totals are calculated using the
+              seven county area and not the larger Metropolitan Statistical Area.
+              <br><br>
+              Source: Chicago Metropolitan Agency for Planning analysis of
+              2010-14 and 2015-19 American Community Survey data.",
+              caption_valign = "t",
+              filename = "figure3a",
+              height = 7,
+              # mode = c("svg","png","pdf"),
+              overwrite = TRUE)
 
 #############################
 # State-to-state migration
