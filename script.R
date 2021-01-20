@@ -55,6 +55,10 @@ state_populations_normalized <-
                 "New York","Pennsylvania","Utah",
                 "West Virginia") ~ NAME,
     TRUE ~ "")) %>%
+  # Add value for labels
+  mutate(label_y = case_when(
+    NAME %in% c("California","Illinois","North Dakota",
+                "New York","Pennsylvania","Utah",
                 "West Virginia") & year == 2020 ~ value
   )) %>%
   # Add factor levels to states
@@ -89,9 +93,7 @@ figure1 <-
   scale_y_continuous(label = scales::label_percent(accuracy = 1),
                      limits = c(.95,1.20)) +
   # Add labels
-  geom_dl(aes(label = label),
-          method = list(dl.trans(x=x+0.1), "last.points"),
-          cex = 1)
+  geom_text(aes(label = label, y = label_y, x = 2020.1),hjust = 0)
 
 # Export Figure 1
 finalize_plot(figure1,
