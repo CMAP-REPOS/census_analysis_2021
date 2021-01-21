@@ -131,7 +131,7 @@ state_populations_table_export <-
   rbind(state_populations_table[41:50,]) %>%
   mutate(pct_change = paste0(format(round(pct_change * 100,2),nsmall = 2),"%"))
 
-write.csv(state_populations_table_export,"table1.csv")
+write.csv(state_populations_table_export,"outputs/table1.csv")
 
 ########### Figure 2 and intra-Illinois comparisons
 
