@@ -1,6 +1,6 @@
 # Census analysis: 2021
 
-This repo contains code used in the production of a soon-to-be published CMAP analysis on the U.S. Census, which reviews recently released data on population trends in Illinois and the seven-county CMAP region in northeastern Illinois.
+This repo contains code used in the production of a [CMAP analysis](https://www.cmap.illinois.gov/updates/all/-/asset_publisher/UIMfSLnFfMB6/content/population-loss-2020-census) on the U.S. Census, which reviews recently released data on population trends in Illinois and the seven-county CMAP region in northeastern Illinois.
 
 CMAP relied on the following sources:
 - State-level population estimates from the U.S. Census Bureau's [Population Estimates Program](https://www.census.gov/programs-surveys/popest.html).
