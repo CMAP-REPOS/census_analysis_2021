@@ -461,53 +461,65 @@ msa_pop_chart <-
          pop_change = pop19 - pop14) %>%
   arrange(-pct_change) %>%
   mutate(Rank = row_number()) %>%
-  filter(MSA %in% c("CMAP region",
-                    "New York-Newark-Jersey City, NY-NJ-PA",
-                    "Los Angeles-Long Beach-Anaheim, CA",
-                    "Houston-The Woodlands-Sugar Land, TX",
-                    "Austin-Round Rock-Georgetown, TX",
-                    "Washington-Arlington-Alexandria, DC-VA-MD-WV",
-                    "Pittsburgh, PA")) %>%
   mutate(label = recode(MSA,
-                        "Los Angeles-Long Beach-Anaheim, CA" = "Los Angeles, CA",
-                        "Houston-The Woodlands-Sugar Land, TX" = "Houston, TX",
-                        "Austin-Round Rock-Georgetown, TX" = "Austin, TX",
-                        "Washington-Arlington-Alexandria, DC-VA-MD-WV" = "Washington, D.C.",
-                        "New York-Newark-Jersey City, NY-NJ-PA" = "New York, NY")) %>%
+                        "Los Angeles-Long Beach-Anaheim, CA" = "Los Angeles, CA -",
+                        "Houston-The Woodlands-Sugar Land, TX" = "Houston, TX -",
+                        "Austin-Round Rock-Georgetown, TX" = "Austin, TX -",
+                        "Washington-Arlington-Alexandria, DC-VA-MD-WV" = "Washington, D.C. -",
+                        "New York-Newark-Jersey City, NY-NJ-PA" = "New York, NY -",
+                        "CMAP region" = "CMAP region -",
+                        "Pittsburgh, PA" = "Pittsburgh, PA -")) %>%
   mutate(label = ifelse(label %in%
-                          c("New York, NY",
-                            "Los Angeles, CA",
-                            "Houston, TX",
-                            "Pittsburgh, PA",
-                            "Austin, TX",
-                            "Washington, D.C.",
-                            "CMAP region"), label, NA))
+                          c("New York, NY -",
+                            "Los Angeles, CA -",
+                            "Houston, TX -",
+                            "Pittsburgh, PA -",
+                            "Austin, TX -",
+                            "Washington, D.C. -",
+                            "CMAP region -"), label, "")) %>%
+  mutate(label_color = ifelse(
+    label == "CMAP region - ","CMAP",
+    ifelse(label %in% c("New York, NY -",
+                        "Los Angeles, CA -",
+                        "Houston, TX -",
+                        "Pittsburgh, PA -",
+                        "Austin, TX -",
+                        "Washington, D.C. -"),
+           "Other","")))
 
-# Create Figure 3
+
+# Create Figure 3a
 figure3 <-
   msa_pop_chart %>%
-  ggplot(aes(x = reorder(MSA,desc(-Rank)), fill = MSA, y = pct_change)) +
-  geom_col() +
+  ggplot(aes(y = reorder(MSA,desc(Rank)), fill = MSA, x = pct_change)) +
+  geom_col(width = 0.85) +
   theme_cmap(legend.position = "none",
-             gridlines = "h",
-             axis.text.x=element_blank(),
-             hline = 0) +
+             gridlines = "v",
+             vline = 0,
+             axis.text.y = element_blank()) +
   # Highlight Illinois in blue and make other states gray
   cmap_fill_highlight(msa_pop_chart$MSA,
-                       value = c("CMAP region",
-                                 "New York-Newark-Jersey City, NY-NJ-PA",
-                                 "Los Angeles-Long Beach-Anaheim, CA",
-                                 "Houston-The Woodlands-Sugar Land, TX",
-                                 "Austin-Round Rock-Georgetown, TX",
-                                 "Washington-Arlington-Alexandria, DC-VA-MD-WV",
-                                 "Pittsburgh, PA"),
-                       color_value = c("#00b0f0",rep("#475c66",6))) +
-  scale_y_continuous(label = scales::label_percent(accuracy = 1),
-                     limits = c(-.02,.16)) +
-  scale_x_discrete(expand = c(0,4.3)) +
-  geom_text(aes(label = label),
-            hjust = ifelse(msa_pop_chart$pct_change > 0, 0.04, .96),
-            vjust = ifelse(msa_pop_chart$pct_change > 0, -.1, 1.1))
+                      value = c("CMAP region",
+                                "New York-Newark-Jersey City, NY-NJ-PA",
+                                "Los Angeles-Long Beach-Anaheim, CA",
+                                "Houston-The Woodlands-Sugar Land, TX",
+                                "Austin-Round Rock-Georgetown, TX",
+                                "Washington-Arlington-Alexandria, DC-VA-MD-WV",
+                                "Pittsburgh, PA"),
+                      color_value = c("#00b0f0",rep("#475c66",6))) +
+  scale_x_continuous(label = scales::label_percent(accuracy = 1),
+                     limits = c(-.06,.16),
+                     expand = c(0,0),
+                     breaks = c(0, .05, .1, .15)) +
+  scale_y_discrete(expand = c(0.02,0.02)) +
+  geom_text(aes(label = label,
+                x = ifelse(pct_change < 0,
+                           pct_change - .002,
+                           -.002),
+                color = label_color),
+            hjust = 1,
+            vjust = 0.5) +
+  scale_color_discrete(type = c("#00b0f0","#475c66"))
 
 # Export Figure 3
 finalize_plot(figure3,
@@ -525,39 +537,6 @@ finalize_plot(figure3,
               filename = "figure3",
               height = 7,
               mode = c("svg","png","pdf"),
-              overwrite = TRUE)
-
-
-# Create Figure 3a
-figure3a <-
-  msa_pop_chart %>%
-  ggplot(aes(y = reorder(label,desc(Rank)), fill = MSA, x = pct_change)) +
-  geom_col() +
-  theme_cmap(legend.position = "none",
-             gridlines = "v",
-             vline = 0) +
-  # Highlight Illinois in blue and make other states gray
-  cmap_fill_highlight(msa_pop_chart$MSA,
-                      value = c("CMAP region")) +
-  scale_x_continuous(label = scales::label_percent(accuracy = 1),
-                     limits = c(-.015,.16))
-
-# Export Figure 3a
-finalize_plot(figure3a,
-              title = "Regional population change, 2010-14 vs. 2015-19
-              (highlighting the CMAP region and select regions).",
-              caption = "Note: CMAP region is highlighted in blue. All figures
-              are calculated based on five-year American Community Survey county
-              population totals, using Metropolitan Statistical Area boundaries
-              as of March 2020. CMAP region totals are calculated using the
-              seven county area and not the larger Metropolitan Statistical Area.
-              <br><br>
-              Source: Chicago Metropolitan Agency for Planning analysis of
-              2010-14 and 2015-19 American Community Survey data.",
-              caption_valign = "t",
-              filename = "figure3a",
-              height = 7,
-              # mode = c("svg","png","pdf"),
               overwrite = TRUE)
 
 #############################
