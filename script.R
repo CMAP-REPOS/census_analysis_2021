@@ -279,10 +279,25 @@ county_pop_map <-
   mutate(county_fips = sub("17","",GEOID))
 
 
+# Table of all counties
+county_pop_table_full <-
+  county_pop %>%
+  rbind(county_pop %>% filter(GEOID %in% cmap_counties)) %>%
+  rbind(chicago_suburban_cook) %>%
+  distinct() %>%
+  arrange(-pct_change) %>%
+  mutate(pct_change = paste0(pct_change,"%")) %>%
+  select(-GEOID) %>%
+  mutate(County = sub(" County, Illinois","",County)) %>%
+  mutate(pop14 = format(pop14,big.mark=","),
+         pop19 = format(pop19,big.mark=","),
+         pop_change = format(pop_change,big.mark=","))
+
 # Export results
 
 write.csv(county_pop_table,"outputs/table2.csv")
 write.csv(county_pop_map,"outputs/figure2_inputs.csv")
+write.csv(county_pop_table_full,"outputs/table2_full.csv")
 
 
 #######################################
