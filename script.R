@@ -1,8 +1,10 @@
+###########################
+# Initiation
+
 library(tidyverse)
 library(tidycensus)
 library(cmapplot)
 library(censusapi)
-
 
 # # Run every session
 # Sys.setenv(CENSUS_KEY="YOUR KEY HERE")
@@ -15,6 +17,9 @@ library(censusapi)
 # CMAP area, county FIPS codes
 cmap_counties <- c("17031", "17043", "17089", "17093", "17097", "17111", "17197")
 
+#########################################
+# Census metadata (available for review)
+
 # # View all available APIs
 # listCensusApis() %>%
 #   View()
@@ -24,7 +29,8 @@ cmap_counties <- c("17031", "17043", "17089", "17093", "17097", "17111", "17197"
 #                    vintage = "2019") %>%
 #   View()
 
-#### FIGURE 1
+##################################
+# Figure 1
 
 # Import population estimates
 state_populations <-
@@ -67,8 +73,6 @@ state_populations_normalized <-
                               "New York","Pennsylvania","Utah",
                               "West Virginia","Illinois"),
                             after = Inf))
-
-
 
 # Create Figure 1
 figure1 <-
@@ -133,7 +137,8 @@ state_populations_table_export <-
 
 write.csv(state_populations_table_export,"outputs/table1.csv")
 
-########### Figure 2 and intra-Illinois comparisons
+###########################################
+# Figure 2 base data and Table 2 exporting
 
 
 ## Pull data on Illinois counties
@@ -280,7 +285,8 @@ write.csv(county_pop_table,"outputs/table2.csv")
 write.csv(county_pop_map,"outputs/figure2_inputs.csv")
 
 
-##### CMAP region vs. rest of IL
+#######################################
+# Table 3 - CMAP region vs. rest of IL
 
 # Join county-level populations from 2014 and 2019
 regional_comparison_wip <-
@@ -314,8 +320,8 @@ regional_comparison <-
 write.csv(regional_comparison,"outputs/table3.csv")
 
 
-####### MSA-level population figures (cited in text)
-
+##########################################################################
+# MSA-level population figures for in-text citations and Tables 4 & 5
 
 state_fips = unique(fips_codes$state_code)[1:51]
 
@@ -455,12 +461,17 @@ write.csv(msa_hispa_pop_export,"outputs/table5.csv")
 #############################
 # Figure 3
 
+# Create source data for Figure 3
 msa_pop_chart <-
   pop_counties_MSAs %>%
+  # Calculate percentage changes
   mutate(pct_change = round(((pop19 - pop14) / pop14),4),
          pop_change = pop19 - pop14) %>%
+  # Arrange by change
   arrange(-pct_change) %>%
+  # Add "Rank" for sorting purposes
   mutate(Rank = row_number()) %>%
+  # Change labels for regions that we want to highlight
   mutate(label = recode(MSA,
                         "Los Angeles-Long Beach-Anaheim, CA" = "Los Angeles, CA -",
                         "Houston-The Woodlands-Sugar Land, TX" = "Houston, TX -",
@@ -469,6 +480,7 @@ msa_pop_chart <-
                         "New York-Newark-Jersey City, NY-NJ-PA" = "New York, NY -",
                         "CMAP region" = "CMAP region -",
                         "Pittsburgh, PA" = "Pittsburgh, PA -")) %>%
+  # Keep only relevant labels
   mutate(label = ifelse(label %in%
                           c("New York, NY -",
                             "Los Angeles, CA -",
@@ -477,6 +489,7 @@ msa_pop_chart <-
                             "Austin, TX -",
                             "Washington, D.C. -",
                             "CMAP region -"), label, "")) %>%
+  # Add category for varying font color of labels
   mutate(label_color = ifelse(
     label == "CMAP region - ","CMAP",
     ifelse(label %in% c("New York, NY -",
@@ -488,11 +501,16 @@ msa_pop_chart <-
            "Other","")))
 
 
-# Create Figure 3a
+# Create Figure 3
 figure3 <-
   msa_pop_chart %>%
-  ggplot(aes(y = reorder(MSA,desc(Rank)), fill = MSA, x = pct_change)) +
+  ggplot(aes(y = reorder(MSA,desc(Rank)),
+             x = pct_change,
+             fill = MSA)) +
+  # Add columns and change width
   geom_col(width = 0.85) +
+  # Invoke CMAP style, remove legend, add gridlines and vertical origin line,
+  # and remove axis labels on the y-axis
   theme_cmap(legend.position = "none",
              gridlines = "v",
              vline = 0,
@@ -507,18 +525,23 @@ figure3 <-
                                 "Washington-Arlington-Alexandria, DC-VA-MD-WV",
                                 "Pittsburgh, PA"),
                       color_value = c("#00b0f0",rep("#475c66",6))) +
+  # Modify x and y axes for formatting
   scale_x_continuous(label = scales::label_percent(accuracy = 1),
                      limits = c(-.06,.16),
                      expand = c(0,0),
                      breaks = c(0, .05, .1, .15)) +
   scale_y_discrete(expand = c(0.02,0.02)) +
+  # Add labels for selected regions
   geom_text(aes(label = label,
+                # Dynamically change x position based on value
                 x = ifelse(pct_change < 0,
                            pct_change - .002,
                            -.002),
+                # Allow for modification of text color
                 color = label_color),
             hjust = 1,
             vjust = 0.5) +
+  # Modify label text color
   scale_color_discrete(type = c("#00b0f0","#475c66"))
 
 # Export Figure 3
