@@ -114,6 +114,24 @@ finalize_plot(figure1,
               mode = c("svg","png","pdf"),
               overwrite = TRUE)
 
+# Generate supplementary export table of state level populations
+state_populations_table <-
+  state_populations %>%
+  filter(NAME != "District of Columbia") %>%
+  select(name = NAME,
+         pop10 = CENSUS2010POP,
+         pop20 = POPESTIMATE2020) %>%
+  mutate(pop_change = pop20 - pop10,
+         pct_change = (pop20 - pop10) / pop10) %>%
+  arrange(-pct_change) %>%
+  mutate(rank = row_number())
+
+state_populations_table_export <-
+  state_populations_table[1:10,] %>%
+  rbind(state_populations_table[41:50,]) %>%
+  mutate(pct_change = paste0(format(round(pct_change * 100,2),nsmall = 2),"%"))
+
+write.csv(state_populations_table_export,"table1.csv")
 
 ########### Figure 2 and intra-Illinois comparisons
 
@@ -258,8 +276,8 @@ county_pop_map <-
 
 # Export results
 
-write.csv(county_pop_table,"outputs/county_pop_table.csv")
-write.csv(county_pop_map,"outputs/county_pop_map.csv")
+write.csv(county_pop_table,"outputs/table2.csv")
+write.csv(county_pop_map,"outputs/figure2_inputs.csv")
 
 
 ##### CMAP region vs. rest of IL
@@ -293,7 +311,7 @@ regional_comparison <-
          "Change (pct.)" = pct_change)
 
 
-write.csv(regional_comparison,"outputs/regional_comparison.csv")
+write.csv(regional_comparison,"outputs/table3.csv")
 
 
 ####### MSA-level population figures (cited in text)
@@ -401,7 +419,7 @@ msa_pop_export <- msa_pop[c(1:10,(nrow(msa_pop)-9):nrow(msa_pop)),]
 
 # Export results
 
-write.csv(msa_pop_export,"outputs/msa_pop_export.csv")
+write.csv(msa_pop_export,"outputs/table4.csv")
 
 
 
@@ -431,7 +449,7 @@ msa_hispa_pop_export <- msa_hispa_pop[c(1:5,(nrow(msa_hispa_pop)-4):nrow(msa_his
 
 # Export results
 
-write.csv(msa_hispa_pop_export,"outputs/msa_hispa_pop_export.csv")
+write.csv(msa_hispa_pop_export,"outputs/table5.csv")
 
 
 #############################
@@ -548,6 +566,7 @@ finalize_plot(figure3a,
 # 2019 State-to-state migration totals downloaded and analyzed from the Bureau:
 # https://www.census.gov/data/tables/time-series/demo/geographic-mobility/state-to-state-migration.html
 
+# Tables 6 and 7 rely on figures copied directly from the relevant U.S. Census Bureau exports.
 
 ############################
 # Figure 4
